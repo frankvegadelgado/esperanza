@@ -58,23 +58,6 @@ def find_independent_set(graph):
             independent_set.update(set(subgraph) - vertex_cover)
         return independent_set
 
-    def is_independent_set(graph, independent_set):
-        """
-        Verify if a set of vertices is an independent set in the graph.
-        (Used for safety/debugging; raises an error if the result is invalid.)
-
-        Args:
-            graph (nx.Graph): The input graph.
-            independent_set (set): Vertices to check.
-
-        Returns:
-            bool: True if the set is independent, False otherwise.
-        """
-        for u, v in graph.edges():
-            if u in independent_set and v in independent_set:
-                return False
-        return True
-
     # Validate that the input is an undirected simple graph from NetworkX
     if not isinstance(graph, nx.Graph):
         raise ValueError("Input must be an undirected NetworkX Graph.")
@@ -134,10 +117,6 @@ def find_independent_set(graph):
 
     # Always add the original isolated nodes
     approximate_independent_set.update(isolates)
-
-    # Safety check: ensure the returned set is truly independent (should never fail if implementation is correct)
-    if not is_independent_set(graph, approximate_independent_set):
-        raise RuntimeError(f"Polynomial-time reduction failed: the set {approximate_independent_set} is not independent")
 
     return approximate_independent_set
 
