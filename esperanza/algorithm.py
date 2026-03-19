@@ -8,25 +8,7 @@ from hvala.algorithm import find_vertex_cover
 
 def find_independent_set(graph):
     """
-    Compute an approximate maximum independent set using bipartite graphs.
-
-    The algorithm works as follows:
-    - Isolated nodes are always included (they form an independent set by themselves).
-    - For each connected component:
-        - If the component is bipartite, compute the exact maximum independent set using König's theorem
-          (maximum independent set = total vertices - minimum vertex cover = total vertices - maximum matching).
-        - If the component is not bipartite, use an approximation technique:
-            1. Find a vertex cover C0 in the component.
-            2. Take I0 = V - C0 (the complement, which is an independent set).
-            3. Remove I0 from the graph.
-            4. In the remaining graph, find isolated nodes and add them separately.
-            5. Find another vertex cover C1 in the remaining non-isolated part.
-            6. Take I1 = remaining vertices - C1 (another independent set).
-            7. The union I0 ∪ I1 ∪ isolated nodes induces a bipartite subgraph (I0 and I1 are independent sets,
-               and there are no edges within each).
-            8. Compute the exact maximum independent set on this induced bipartite subgraph.
-    - The result is a valid independent set (guaranteed by construction and verified at the end).
-    - This is an approximation algorithm because the induced bipartite subgraph may be smaller than the full graph.
+    Compute an approximate maximum independent set
 
     Args:
         graph (nx.Graph): An undirected NetworkX graph.
@@ -34,30 +16,7 @@ def find_independent_set(graph):
     Returns:
         set: A maximal independent set of vertices (approximate maximum).
     """
-    def iset_bipartite(bipartite_graph):
-        """Compute a maximum independent set for a bipartite graph using maximum matching.
-
-        Uses Hopcroft-Karp to find maximum matching, then converts it to a minimum vertex cover
-        (via NetworkX's bipartite utility), then takes the complement as the maximum independent set.
-
-        Args:
-            bipartite_graph (nx.Graph): A bipartite NetworkX graph.
-
-        Returns:
-            set: A maximum independent set for the bipartite graph.
-        """
-        independent_set = set()
-        # Process each connected component separately (matching is per component)
-        for component in nx.connected_components(bipartite_graph):
-            subgraph = bipartite_graph.subgraph(component)
-            # Hopcroft-Karp is an efficient algorithm for maximum bipartite matching
-            matching = nx.bipartite.hopcroft_karp_matching(subgraph)
-            # Convert matching to minimum vertex cover using König's theorem implementation
-            vertex_cover = nx.bipartite.to_vertex_cover(subgraph, matching)
-            # Complement of vertex cover is the maximum independent set
-            independent_set.update(set(subgraph) - vertex_cover)
-        return independent_set
-
+    
     # Validate that the input is an undirected simple graph from NetworkX
     if not isinstance(graph, nx.Graph):
         raise ValueError("Input must be an undirected NetworkX Graph.")
@@ -83,35 +42,9 @@ def find_independent_set(graph):
     # Main loop: process each remaining connected component
     approximate_independent_set = set()
     for component in nx.connected_components(working_graph):
-        component_subgraph = working_graph.subgraph(component)
-
-        if nx.bipartite.is_bipartite(component_subgraph):
-            # Exact solution for bipartite graphs
-            solution = iset_bipartite(component_subgraph)
-        else:
-            # Approximation for non-bipartite graphs
-            G = component_subgraph.copy()
-
-            # Step 1: Find a vertex cover → complement is an independent set
-            bipartite_set0 = set(G) - find_vertex_cover(G)
-
-            # Step 2: Remove that independent set
-            G.remove_nodes_from(bipartite_set0)
-
-            # Step 3: Collect newly created isolated nodes
-            isolated_nodes = set(nx.isolates(G))
-            G.remove_nodes_from(isolated_nodes)
-
-            # Step 4: Find another vertex cover in the remaining graph → complement is another independent set
-            bipartite_set1 = set(G) - find_vertex_cover(G)
-
-            # Construct a bipartite subgraph induced by the two independent sets plus isolates
-            # (no edges within each set by construction)
-            bipartite_graph = component_subgraph.subgraph(bipartite_set0 | bipartite_set1 | isolated_nodes)
-
-            # Compute exact maximum independent set on this induced bipartite subgraph
-            solution = iset_bipartite(bipartite_graph)
-
+        G = working_graph.subgraph(component)
+        # Find a vertex cover → complement is an independent set
+        solution = set(G) - find_vertex_cover(G)
         # Accumulate solutions from all components
         approximate_independent_set.update(solution)
 
