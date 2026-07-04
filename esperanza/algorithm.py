@@ -4,7 +4,18 @@
 import itertools
 
 import networkx as nx
-from hvala.algorithm import find_vertex_cover 
+from .maxcut import maxcut_bipartite_min_side_linear
+
+def max_cut_bipartite(G: nx.Graph):
+    B = nx.Graph()
+    for u, v in G.edges():
+        B.add_edges_from([((u, 0), (v, 1)), ((u, 1), (v, 0))])
+    result = maxcut_bipartite_min_side_linear(B, minimize_side=1)
+    S = {u for u, _ in result["side_0"]}
+    return S
+
+def maximize_solution(G: nx.Graph, S: set):
+    raise NotImplementedError()
 
 def find_independent_set(graph):
     """
@@ -39,14 +50,7 @@ def find_independent_set(graph):
     if working_graph.number_of_nodes() == 0:
         return isolates
 
-    # Main loop: process each remaining connected component
-    approximate_independent_set = set()
-    for component in nx.connected_components(working_graph):
-        G = working_graph.subgraph(component)
-        # Find a vertex cover → complement is an independent set
-        solution = set(G) - find_vertex_cover(G)
-        # Accumulate solutions from all components
-        approximate_independent_set.update(solution)
+    approximate_independent_set = maximize_solution(working_graph, max_cut_bipartite(working_graph))
 
     # Always add the original isolated nodes
     approximate_independent_set.update(isolates)

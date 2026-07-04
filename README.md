@@ -165,7 +165,7 @@ options:
   -a, --approximation   enable comparison with a polynomial-time approximation approach within a factor of at most 2
   -b, --bruteForce      enable comparison with the exponential-time brute-force approach
   -c, --count           calculate the size of the Independent Set
-  -v, --verbose         anable verbose output
+  -v, --verbose         enable verbose output
   -l, --log             enable file logging
   --version             show program's version number and exit
 ```
@@ -196,7 +196,7 @@ options:
   -a, --approximation   enable comparison with a polynomial-time approximation approach within a factor of at most 2
   -b, --bruteForce      enable comparison with the exponential-time brute-force approach
   -c, --count           calculate the size of the Independent Set
-  -v, --verbose         anable verbose output
+  -v, --verbose         enable verbose output
   -l, --log             enable file logging
   --version             show program's version number and exit
 ```
@@ -224,7 +224,7 @@ options:
   -b, --bruteForce      enable comparison with the exponential-time brute-force approach
   -c, --count           calculate the size of the Independent Set
   -w, --write           write the generated random matrix to a file in the current directory
-  -v, --verbose         anable verbose output
+  -v, --verbose         enable verbose output
   -l, --log             enable file logging
   --version             show program's version number and exit
 ```
@@ -240,7 +240,7 @@ options:
 # Complexity
 
 ```diff
-+ This algorithm finds near-optimal solutions for MIS in polynomial time, with an approximation ratio below 2. This breakthrough challenges the computational boundaries of P vs. NP providing strong evidence that P = NP.
++ This algorithm finds near-optimal solutions for MIS in polynomial time. This breakthrough challenges the computational boundaries of P vs. NP providing strong evidence that P = NP.
 ```
 
 ---

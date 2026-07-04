@@ -2,12 +2,14 @@ from pathlib import Path
 
 import setuptools
 
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 
 NAME = "esperanza"
 
 INSTALL_REQUIRES = [
-    "hvala>=0.0.7"
+    "numpy>=2.2.1",
+    "scipy>=1.15.0",
+    "networkx[default]>=3.4.2"
 ]
 
 setuptools.setup(
