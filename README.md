@@ -84,7 +84,7 @@ where the fields W and V specify the endpoints of the edge while the lower-case 
 
 _Example Solution:_
 
-Independent Set Found `2, 5`: Nodes `2`, and `5` constitute an optimal solution.
+Independent Set Found `4, 5`: Nodes `4`, and `5` constitute an optimal solution.
 
 ---
 
@@ -120,10 +120,10 @@ pip install esperanza
    **Example Output:**
 
    ```
-   testMatrix1: Independent Set Found 2, 5
+   testMatrix1: Independent Set Found 4, 5
    ```
 
-   This indicates nodes `2, 5` form a Independent Set.
+   This indicates nodes `4, 5` form a Independent Set.
 
 ---
 

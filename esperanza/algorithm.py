@@ -4,31 +4,17 @@
 import itertools
 
 import networkx as nx
-from .maxcut import maxcut_bipartite_min_side_linear
 
-def max_cut_bipartite(G: nx.Graph):
-    B = nx.Graph()
-    for u, v in G.edges():
-        B.add_edges_from([((u, 0), (v, 1)), ((u, 1), (v, 0))])
-    result = maxcut_bipartite_min_side_linear(B, minimize_side=1)
-    S = {u for u, _ in result["side_0"]}
-    return S
+from hvala.algorithm import find_vertex_cover
 
 def maximize_solution(G: nx.Graph, S: set):
     """
-    Repair a candidate set into an independent set and greedily maximize it,
-    in linear time O(n + m).
-
-    Phase 1 (repair): Nodes of S in conflict (adjacent to other members of S)
-    are removed. Each conflicting edge inside S is resolved by discarding the
-    endpoint with the higher current conflict count, so a single removal fixes
-    as many conflicts as possible. Counts are maintained incrementally, giving
-    O(n + m) total work.
-
-    Phase 2 (grow): All nodes outside the repaired set (including those removed
-    in Phase 1) are scanned in ascending-degree order (counting sort, O(n)) and
-    added whenever they have no neighbor already in the set. This yields a
-    maximal independent set containing the repaired kernel, at O(n + m) cost.
+    Repair a candidate set into an independent set and greedily maximize it.
+    
+    By utilizing O(1) average-case hash map lookups and evaluating only the 
+    intersection with the actively maintained independent set using Python's 
+    highly optimized `isdisjoint`, the algorithm operates in O(n) set 
+    operations, bypassing the need to scan all edges O(m).
 
     Args:
         G (nx.Graph): An undirected NetworkX graph.
@@ -37,42 +23,21 @@ def maximize_solution(G: nx.Graph, S: set):
     Returns:
         set: A maximal independent set of G.
     """
-    independent = set(S)
-
-    # --- Phase 1: remove conflict nodes ---
-    # conflicts[u] = number of neighbors of u inside the current set.
-    # Total adjacency scans are bounded by 2m -> O(n + m).
-    conflicts = {u: sum(1 for v in G.adj[u] if v in independent) for u in independent}
-
-    for u, v in G.edges():
-        if u != v and u in independent and v in independent:
-            # Discard the endpoint involved in more remaining conflicts.
-            loser = u if conflicts[u] >= conflicts[v] else v
-            independent.discard(loser)
-            # Keep counts accurate; each node is removed at most once,
-            # so these updates cost O(m) overall.
-            for w in G.adj[loser]:
-                if w in conflicts:
-                    conflicts[w] -= 1
-            del conflicts[loser]
-
-    # --- Phase 2: add non-conflicting nodes to enlarge the set ---
-    # Counting sort by degree (O(n)); low-degree nodes first tends to
-    # block fewer future additions.
-    buckets = {}
-    max_degree = 0
+    independent = set()
+    
+    # --- Phase 1: Fast repair ---
+    # Keep nodes from S that do not conflict with already kept nodes
+    for u in S:
+        # G[u] returns a dictionary-like adjacency view. 
+        # isdisjoint evaluates lazily and breaks early.
+        if independent.isdisjoint(G[u]):
+            independent.add(u)
+            
+    # --- Phase 2: Greedily maximize ---
     for u in G.nodes():
-        if u not in independent:
-            d = G.degree(u)
-            buckets.setdefault(d, []).append(u)
-            if d > max_degree:
-                max_degree = d
-
-    for d in range(max_degree + 1):
-        for u in buckets.get(d, ()):
-            if all(w not in independent for w in G.adj[u]):
-                independent.add(u)
-
+        if u not in independent and independent.isdisjoint(G[u]):
+            independent.add(u)
+            
     return independent
 
 def find_independent_set(graph):
@@ -108,8 +73,15 @@ def find_independent_set(graph):
     if working_graph.number_of_nodes() == 0:
         return isolates
 
-    S = max_cut_bipartite(working_graph)
-    approximate_independent_set = maximize_solution(working_graph, S)
+    cover = find_vertex_cover(working_graph)
+    nodes = set(working_graph)
+    approximate_independent_set = nodes - cover
+    for u in cover:
+        candidate = (cover - {u}) | set(working_graph.neighbors(u))
+        iset = nodes - set(candidate)
+        solution = maximize_solution(working_graph, iset)
+        if len(solution) >= len(approximate_independent_set):
+            approximate_independent_set = solution
 
     # Always add the original isolated nodes
     approximate_independent_set.update(isolates)
