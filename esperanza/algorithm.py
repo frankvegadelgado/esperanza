@@ -8,14 +8,19 @@ from hvala.algorithm import find_vertex_cover
 
 def maximize_solution(G: nx.Graph, S: set):
     """
-    Repair a candidate set into an independent set and greedily maximize it.
-    
-    By maintaining an explicit `blocked` hash set of neighbors, candidate node
-    validity is checked in O(1) time and neighbor sets are updated only upon 
-    adding a vertex. 
+    Repair a candidate set into an independent set and greedily maximize it,
+    in linear time O(n + m).
 
-    Phase 2 uses degree-based sorting to dodge high-degree "trap" vertices 
-    while operating in O(n log n + m) time per call instead of O(n^2).
+    Phase 1 (repair): Nodes of S in conflict (adjacent to other members of S)
+    are removed. Each conflicting edge inside S is resolved by discarding the
+    endpoint with the higher current conflict count, so a single removal fixes
+    as many conflicts as possible. Counts are maintained incrementally, giving
+    O(n + m) total work.
+
+    Phase 2 (grow): All nodes outside the repaired set (including those removed
+    in Phase 1) are scanned in ascending-degree order (counting sort, O(n)) and
+    added whenever they have no neighbor already in the set. This yields a
+    maximal independent set containing the repaired kernel, at O(n + m) cost.
 
     Args:
         G (nx.Graph): An undirected NetworkX graph.
@@ -24,30 +29,42 @@ def maximize_solution(G: nx.Graph, S: set):
     Returns:
         set: A maximal independent set of G.
     """
-    independent = set()
-    blocked = set()
-    
-    # --- Phase 1: Fast repair ---
-    # Respect perturbation starting point from candidate set S
-    for u in S:
-        if u not in blocked:
-            independent.add(u)
-            blocked.update(G[u])
-            
-    # --- Phase 2: Greedily maximize with degree-awareness ---
-    remaining_nodes = [
-        u for u in G.nodes() 
-        if u not in independent and u not in blocked
-    ]
-    
-    # Sort remaining candidates by degree in ascending order
-    remaining_nodes.sort(key=lambda node: G.degree(node))
-    
-    for u in remaining_nodes:
-        if u not in blocked:
-            independent.add(u)
-            blocked.update(G[u])
-            
+    independent = set(S)
+
+    # --- Phase 1: remove conflict nodes ---
+    # conflicts[u] = number of neighbors of u inside the current set.
+    # Total adjacency scans are bounded by 2m -> O(n + m).
+    conflicts = {u: sum(1 for v in G.adj[u] if v in independent) for u in independent}
+
+    for u, v in G.edges():
+        if u != v and u in independent and v in independent:
+            # Discard the endpoint involved in more remaining conflicts.
+            loser = u if conflicts[u] >= conflicts[v] else v
+            independent.discard(loser)
+            # Keep counts accurate; each node is removed at most once,
+            # so these updates cost O(m) overall.
+            for w in G.adj[loser]:
+                if w in conflicts:
+                    conflicts[w] -= 1
+            del conflicts[loser]
+
+    # --- Phase 2: add non-conflicting nodes to enlarge the set ---
+    # Counting sort by degree (O(n)); low-degree nodes first tends to
+    # block fewer future additions.
+    buckets = {}
+    max_degree = 0
+    for u in G.nodes():
+        if u not in independent:
+            d = G.degree(u)
+            buckets.setdefault(d, []).append(u)
+            if d > max_degree:
+                max_degree = d
+
+    for d in range(max_degree + 1):
+        for u in buckets.get(d, ()):
+            if all(w not in independent for w in G.adj[u]):
+                independent.add(u)
+
     return independent
 
 def pure_caro_wei_baseline(G: nx.Graph):
@@ -86,17 +103,21 @@ def find_independent_set(graph: nx.Graph):
         return isolates
 
     # 1. Guarantee the Caro-Wei bound unconditionally
-    best_solution = pure_caro_wei_baseline(working_graph)
+    caro_wei_iset = pure_caro_wei_baseline(working_graph)
 
     # 2. Get the Hvala cover
     cover = find_vertex_cover(working_graph)
     nodes = set(working_graph.nodes())
-    
-    # 3. Explicitly inject the maximum degree vertex to guarantee branch evaluation
+    hvala_iset = nodes - cover
+
+    # 3. Get best solution
+    best_solution = caro_wei_iset if len(caro_wei_iset) > len(hvala_iset) else hvala_iset
+
+    # 4. Explicitly inject the maximum degree vertex to guarantee branch evaluation
     v_max = max(working_graph.nodes, key=working_graph.degree)
     evaluation_pool = cover.union({v_max})
-
-    # 4. Iterate over the guaranteed pool
+    
+    # 5. Iterate over the guaranteed pool
     for u in evaluation_pool:
         candidate = (cover - {u}) | set(working_graph.neighbors(u))
         iset = nodes - candidate
