@@ -50,26 +50,34 @@ def maximize_solution(G: nx.Graph, S: set):
             
     return independent
 
-
-def find_independent_set(graph):
+def pure_caro_wei_baseline(G: nx.Graph):
     """
-    Compute an approximate maximum independent set.
-
-    Args:
-        graph (nx.Graph): An undirected NetworkX graph.
-
-    Returns:
-        set: A maximal independent set of vertices (approximate maximum).
+    Computes a true dynamic Min-Degree Greedy independent set to strictly 
+    guarantee the Caro-Wei bound: |I| >= sum(1 / (d(v) + 1)) >= n / (Delta + 1).
     """
+    H = G.copy()
+    independent_set = set()
     
-    if not isinstance(graph, nx.Graph):
-        raise ValueError("Input must be an undirected NetworkX Graph.")
+    while H.number_of_nodes() > 0:
+        # Dynamically find the vertex with the minimum degree in the RESIDUAL graph
+        v_min = min(H.nodes, key=H.degree)
+        independent_set.add(v_min)
+        
+        # Remove the closed neighborhood
+        H.remove_nodes_from(list(H.neighbors(v_min)) + [v_min])
+        
+    return independent_set
 
-    if graph.number_of_nodes() == 0 or graph.number_of_edges() == 0:
-        return set(graph.nodes())
+def find_independent_set(graph: nx.Graph):
+    """
+    Compute an approximate maximum independent set with strict Caro-Wei 
+    and Delta bounds.
+    """
+    if graph.number_of_nodes() == 0:
+        return set()
 
     working_graph = graph.copy()
-    working_graph.remove_edges_from(list(nx.selfloop_edges(working_graph)))
+    working_graph.remove_edges_from(nx.selfloop_edges(working_graph))
 
     isolates = set(nx.isolates(working_graph))
     working_graph.remove_nodes_from(isolates)
@@ -77,20 +85,29 @@ def find_independent_set(graph):
     if working_graph.number_of_nodes() == 0:
         return isolates
 
+    # 1. Guarantee the Caro-Wei bound unconditionally
+    best_solution = pure_caro_wei_baseline(working_graph)
+
+    # 2. Get the Hvala cover
     cover = find_vertex_cover(working_graph)
-    nodes = set(working_graph)
-    approximate_independent_set = nodes - cover
-    for u in cover:
+    nodes = set(working_graph.nodes())
+    
+    # 3. Explicitly inject the maximum degree vertex to guarantee branch evaluation
+    v_max = max(working_graph.nodes, key=working_graph.degree)
+    evaluation_pool = cover.union({v_max})
+
+    # 4. Iterate over the guaranteed pool
+    for u in evaluation_pool:
         candidate = (cover - {u}) | set(working_graph.neighbors(u))
         iset = nodes - candidate
-        solution = maximize_solution(working_graph, iset)
-        if len(solution) >= len(approximate_independent_set):
-            approximate_independent_set = solution
+        
+        solution = maximize_solution(working_graph, iset) # Keep Phase 1/2 repair here
+        
+        if len(solution) > len(best_solution):
+            best_solution = solution
 
-    approximate_independent_set.update(isolates)
-
-    return approximate_independent_set
-
+    best_solution.update(isolates)
+    return best_solution
 
 def find_independent_set_brute_force(graph):
     """
