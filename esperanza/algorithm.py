@@ -5,6 +5,7 @@
 import itertools
 import networkx as nx
 from hvala.algorithm import find_vertex_cover
+from .disjoint import FastCliqueUF
 
 def maximize_solution(G: nx.Graph, S: set):
     """
@@ -126,6 +127,29 @@ def find_independent_set(graph: nx.Graph):
         
         if len(solution) > len(best_solution):
             best_solution = solution
+
+    # 6. Use disjoint set on complement graph 
+    complement_graph = nx.complement(working_graph)
+    disjoint_set = FastCliqueUF(complement_graph)
+    for u in complement_graph:
+        neighbors = list(complement_graph.neighbors(u))
+        found = None
+        for v in neighbors:
+            if disjoint_set.add(v):
+                found = u
+        if found is not None:
+            # Extract all components of size >= 2 (potential cliques)
+            cliques = [s for s in disjoint_set.to_sets() if len(s) >= 2]
+    
+            # Choose the largest clique-like component if any exist;
+            solution = max(cliques, key=len)  
+            solution.add(found)
+
+            if len(solution) > len(best_solution):
+                best_solution = solution
+        while neighbors:
+            w = neighbors.pop()
+            disjoint_set.remove(w)
 
     best_solution.update(isolates)
     return best_solution
