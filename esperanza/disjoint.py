@@ -40,7 +40,6 @@ class FastCliqueUF:
 
     def add(self, u):
         """
-        Runtime: O(1).
         Adds a node 'u' to the structure. Returns True if there is at least one edge 
         between 'u' and any previously added element, False otherwise.
         """
@@ -53,7 +52,6 @@ class FastCliqueUF:
 
     def remove(self, u):
         """
-        Runtime: O(1).
         Removes a node 'u' from the added elements by clearing its corresponding bit.
         """
         self.added_mask &= ~(1 << self.index[u])
