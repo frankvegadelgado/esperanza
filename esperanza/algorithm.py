@@ -6,6 +6,7 @@ import itertools
 import networkx as nx
 from hvala.algorithm import find_vertex_cover
 from .disjoint import FastCliqueUF
+from collections import deque
 
 def maximize_solution(G: nx.Graph, S: set):
     """
@@ -70,20 +71,60 @@ def maximize_solution(G: nx.Graph, S: set):
 
 def pure_caro_wei_baseline(G: nx.Graph):
     """
-    Computes a true dynamic Min-Degree Greedy independent set to strictly 
-    guarantee the Caro-Wei bound: |I| >= sum(1 / (d(v) + 1)) >= n / (Delta + 1).
+    Computes a dynamic min-degree-greedy independent set, guaranteeing the
+    Caro-Wei bound |I| >= sum(1/(d(v)+1)) >= n/(Delta+1), in O(n + m) time.
+
+    This repeatedly removes the CLOSED neighborhood of the current minimum-
+    degree vertex, which is a different (and slightly trickier) update
+    pattern than a simple degree-decrement greedy: removing one vertex can
+    remove many others in one step, and their neighbors' degrees must drop
+    accordingly, potentially requiring the bucket scan to "retreat" to a
+    lower bucket it had already passed. The retreat is what makes this
+    still O(n + m) overall (each degree decrease is O(1) amortized), rather
+    than needing a full rescan.
     """
-    H = G.copy()
+    adj = {v: set(G[v]) for v in G.nodes()}
+    n = len(adj)
+    if n == 0:
+        return set()
+
+    deg = {v: len(adj[v]) for v in adj}
+    maxd = max(deg.values(), default=0)
+    buckets = [deque() for _ in range(maxd + 1)]
+    for v, d in deg.items():
+        buckets[d].append(v)
+
+    removed = set()
     independent_set = set()
-    
-    while H.number_of_nodes() > 0:
-        # Dynamically find the vertex with the minimum degree in the RESIDUAL graph
-        v_min = min(H.nodes, key=H.degree)
+    remaining = n
+    ptr = 0
+
+    while remaining > 0:
+        while ptr <= maxd:
+            while buckets[ptr] and buckets[ptr][0] in removed:
+                buckets[ptr].popleft()
+            if buckets[ptr]:
+                break
+            ptr += 1
+        if ptr > maxd:
+            break  # safety net; should not trigger while remaining > 0
+
+        v_min = buckets[ptr].popleft()
         independent_set.add(v_min)
-        
-        # Remove the closed neighborhood
-        H.remove_nodes_from(list(H.neighbors(v_min)) + [v_min])
-        
+        removed.add(v_min)
+        remaining -= 1
+
+        to_remove = [u for u in adj[v_min] if u not in removed]
+        for u in to_remove:
+            removed.add(u)
+            remaining -= 1
+            for w in adj[u]:
+                if w not in removed and w != v_min:
+                    deg[w] -= 1
+                    buckets[deg[w]].append(w)
+                    if deg[w] < ptr:
+                        ptr = deg[w]
+
     return independent_set
 
 def find_independent_set(graph: nx.Graph):

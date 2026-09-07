@@ -1,4 +1,4 @@
-Esperanza MILP-certified stress run: 30000 instances, seed=42, 444.9s
+Esperanza MILP-certified stress run: 30000 instances, seed=42, 595.1s
 
 family                   count    worst     mean
 gnp                      15000   1.3333   1.0001
@@ -10,4 +10,4 @@ complete                  1000   1.0000   1.0000
 complete_bipartite        1000   1.0000   1.0000
 
 GLOBAL worst ratio: 1.333333  (family: gnp)
-GLOBAL mean  ratio: 1.001505
+GLOBAL mean  ratio: 1.001506
