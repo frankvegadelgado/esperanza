@@ -1,9 +1,15 @@
 class FastCliqueUF:
     """
     A Union-Find structure that only merges components if the union
-    induces a clique in the underlying graph. 
-    Bitwise operations leverage Python's native arbitrary-precision integers
-    to achieve O(1) checks.
+    induces a clique in the underlying graph.
+    Bitwise operations leverage Python's native arbitrary-precision integers.
+
+    Note on bitwise operation cost: Python integers are arbitrary-precision,
+    so an operation on an n-bit mask costs Theta(n / w) for machine word size
+    w. Since w is a constant, this is Theta(n), not O(1) -- it does not
+    vanish asymptotically, only its constant factor is small. This matches
+    the corrected running-time analysis in the accompanying paper (v0.1.3),
+    which no longer describes these operations as O(1).
     """
 
     def __init__(self, graph):
@@ -26,28 +32,42 @@ class FastCliqueUF:
                 mask |= (1 << self.index[v])
             mask |= (1 << self.index[u])
             self.adj_mask[u] = mask
-        
+
         self.added_mask = 0
 
     def find(self, u):
         """
         Runtime: Amortized O(alpha(N)), where alpha is the inverse Ackermann function.
-        Path-compressed find.
+
+        Fixed in v0.1.3: this was previously implemented recursively
+        (`self.parent[u] = self.find(self.parent[u])`), which raises
+        RecursionError on graphs where the union pattern in to_sets()
+        produces a parent chain longer than Python's default recursion
+        limit (observed directly on star-like graphs starting around a
+        few thousand vertices). Rewritten iteratively below: first walk
+        to the root without modifying anything, then walk the same path
+        a second time redirecting every node on it straight to the root.
+        This performs the identical path compression as the recursive
+        version, with the same amortized O(alpha(N)) cost, but with no
+        recursion and therefore no depth limit tied to chain length.
         """
-        if self.parent[u] != u:
-            self.parent[u] = self.find(self.parent[u])
-        return self.parent[u]
+        root = u
+        while self.parent[root] != root:
+            root = self.parent[root]
+        while self.parent[u] != root:
+            self.parent[u], u = root, self.parent[u]
+        return root
 
     def add(self, u):
         """
-        Adds a node 'u' to the structure. Returns True if there is at least one edge 
+        Adds a node 'u' to the structure. Returns True if there is at least one edge
         between 'u' and any previously added element, False otherwise.
         """
         u_bit = 1 << self.index[u]
         overlap = self.added_mask & self.adj_mask[u]
         has_edge = bool(overlap & ~u_bit)
         self.added_mask |= u_bit
-        
+
         return has_edge
 
     def remove(self, u):
@@ -59,42 +79,42 @@ class FastCliqueUF:
     def to_sets(self):
         """
         Runtime: O(N^2 * alpha(N)).
-        Builds the connected components by evaluating the edges of the currently 
+        Builds the connected components by evaluating the edges of the currently
         added nodes, strictly enforcing that each merged component remains a clique.
         """
         self.parent = {u: u for u in self.nodes}
-        
+
         # Temporary structures to validate cliques during reconstruction
         comp_mask = {u: (1 << self.index[u]) for u in self.nodes}
         comp_adj = {u: self.adj_mask[u] for u in self.nodes}
-        
+
         added_nodes = [u for u in self.nodes if self.added_mask & (1 << self.index[u])]
         n_added = len(added_nodes)
-        
+
         for i in range(n_added):
             for j in range(i + 1, n_added):
                 u = added_nodes[i]
                 v = added_nodes[j]
-                
+
                 # If there is an original edge between u and v
                 if self.adj_mask[u] & (1 << self.index[v]):
                     ru = self.find(u)
                     rv = self.find(v)
-                    
+
                     if ru != rv:
                         merged_mask = comp_mask[ru] | comp_mask[rv]
                         merged_adj = comp_adj[ru] & comp_adj[rv]
-                        
+
                         # Strict Clique condition: the merged mask must be
                         # a subset of the merged adjacencies.
                         if not (merged_mask & ~merged_adj):
                             self.parent[ru] = rv
                             comp_mask[rv] = merged_mask
                             comp_adj[rv] = merged_adj
-                        
+
         groups = {}
         for u in added_nodes:
             r = self.find(u)
             groups.setdefault(r, set()).add(u)
-            
+
         return list(groups.values())

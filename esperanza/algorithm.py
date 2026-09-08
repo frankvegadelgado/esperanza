@@ -1,5 +1,5 @@
-# Version: v0.2.1
-# Modified on 04/04/2026
+# Version: v0.1.3
+# Modified on 08/09/2026
 # Author: Frank Vega
 
 import itertools
@@ -172,10 +172,15 @@ def find_independent_set(graph: nx.Graph):
     # 6. Use disjoint set on complement graph 
     complement_graph = nx.complement(working_graph)
     disjoint_set = FastCliqueUF(complement_graph)
+    visited = set()
     for u in complement_graph:
         neighbors = list(complement_graph.neighbors(u))
         found = None
         for v in neighbors:
+            pair = frozenset({u, v})
+            if pair in visited:
+                continue
+            visited.add(pair)
             if disjoint_set.add(v):
                 found = u
         if found is not None:
