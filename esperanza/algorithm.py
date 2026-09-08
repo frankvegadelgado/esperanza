@@ -182,12 +182,13 @@ def find_independent_set(graph: nx.Graph):
             # Extract all components of size >= 2 (potential cliques)
             cliques = [s for s in disjoint_set.to_sets() if len(s) >= 2]
     
-            # Choose the largest clique-like component if any exist;
-            solution = max(cliques, key=len)  
-            solution.add(found)
+            # Iterate from the maximal clique-like component if any exist;
+            for clique in cliques:
+                iset = clique | {found}
+                solution = maximize_solution(working_graph, iset) # Keep Phase 1/2 repair here
 
-            if len(solution) > len(best_solution):
-                best_solution = solution
+                if len(solution) > len(best_solution):
+                    best_solution = solution
         while neighbors:
             w = neighbors.pop()
             disjoint_set.remove(w)
