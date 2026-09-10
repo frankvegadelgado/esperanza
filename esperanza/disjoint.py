@@ -8,7 +8,7 @@ class FastCliqueUF:
     so an operation on an n-bit mask costs Theta(n / w) for machine word size
     w. Since w is a constant, this is Theta(n), not O(1) -- it does not
     vanish asymptotically, only its constant factor is small. This matches
-    the corrected running-time analysis in the accompanying paper (v0.1.3),
+    the corrected running-time analysis in the accompanying paper (v0.1.4),
     which no longer describes these operations as O(1).
     """
 
@@ -38,18 +38,6 @@ class FastCliqueUF:
     def find(self, u):
         """
         Runtime: Amortized O(alpha(N)), where alpha is the inverse Ackermann function.
-
-        Fixed in v0.1.3: this was previously implemented recursively
-        (`self.parent[u] = self.find(self.parent[u])`), which raises
-        RecursionError on graphs where the union pattern in to_sets()
-        produces a parent chain longer than Python's default recursion
-        limit (observed directly on star-like graphs starting around a
-        few thousand vertices). Rewritten iteratively below: first walk
-        to the root without modifying anything, then walk the same path
-        a second time redirecting every node on it straight to the root.
-        This performs the identical path compression as the recursive
-        version, with the same amortized O(alpha(N)) cost, but with no
-        recursion and therefore no depth limit tied to chain length.
         """
         root = u
         while self.parent[root] != root:
