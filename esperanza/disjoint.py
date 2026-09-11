@@ -8,7 +8,7 @@ class FastCliqueUF:
     so an operation on an n-bit mask costs Theta(n / w) for machine word size
     w. Since w is a constant, this is Theta(n), not O(1) -- it does not
     vanish asymptotically, only its constant factor is small. This matches
-    the corrected running-time analysis in the accompanying paper (v0.1.4),
+    the corrected running-time analysis in the accompanying paper (v0.1.5),
     which no longer describes these operations as O(1).
     """
 
