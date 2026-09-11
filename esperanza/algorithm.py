@@ -174,6 +174,7 @@ def find_independent_set(graph: nx.Graph):
     complement_graph = nx.complement(working_graph)
     disjoint_set = FastCliqueUF(complement_graph)
     visited = set()
+    log = max(2, math.floor(math.log2(working_graph.number_of_nodes())))
     for u in complement_graph:
         neighbors = list(complement_graph.neighbors(u))
         found = None
@@ -188,13 +189,14 @@ def find_independent_set(graph: nx.Graph):
             # Extract all components of size >= 2 (potential cliques)
             cliques = [s for s in disjoint_set.to_sets() if len(s) >= 2]
             sorted_cliques = sorted(cliques, key=len)
-            sqrt = math.floor(math.sqrt(len(sorted_cliques)))
-            # Iterate from the maximal clique-like components;                        
-            while len(sorted_cliques) >= sqrt:
+            
+            # Iterate from the maximal clique-like components; 
+            i = 1                       
+            while sorted_cliques and i <= log:
                 clique = sorted_cliques.pop()
                 iset = clique | {found}
                 solution = maximize_solution(working_graph, iset) # Keep Phase 1/2 repair here
-
+                i += 1
                 if len(solution) > len(best_solution):
                     best_solution = solution
         while neighbors:

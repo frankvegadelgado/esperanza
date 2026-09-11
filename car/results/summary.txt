@@ -1,4 +1,4 @@
-Esperanza MILP-certified stress run: 30000 instances, seed=42, 529.2s
+Esperanza MILP-certified stress run: 30000 instances, seed=42, 382.6s
 
 family                   count    worst     mean
 gnp                      15000   1.2500   1.0000
