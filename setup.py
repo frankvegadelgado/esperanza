@@ -2,12 +2,12 @@ from pathlib import Path
 
 import setuptools
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 
 NAME = "esperanza"
 
 INSTALL_REQUIRES = [
-    "hvala>=0.1.2"
+    "salvador>=0.1.4"
 ]
 
 setuptools.setup(

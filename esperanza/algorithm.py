@@ -1,13 +1,23 @@
-# Version: v0.1.5
-# Modified on 11/09/2026
+# Version: v0.1.6
+# Modified on 31/10/2026
 # Author: Frank Vega
 
 import itertools
 import networkx as nx
-import math
-from hvala.algorithm import find_vertex_cover
-from .disjoint import FastCliqueUF
+# Salvador (>= 0.1.4) supplies the vertex cover. Salvador guarantees a
+# 2-approximation for Minimum Vertex Cover: |C| <= 2 * tau(G).
+from salvador.algorithm import find_vertex_cover as salvador_vertex_cover
+from salvador.algorithm import refine_cover
+from salvador.local_search import improve_vertex_cover
+from .localsearch import local_restart_search
 from collections import deque
+
+# Work budgets, in units of (n + m), of the three budgeted phases. With fixed
+# budgets every phase runs in O(n + m) time.
+RESTART_BUDGET = 100
+LOCAL_RESTART_BUDGET = 100
+ILS_BUDGET = 100
+ILS_SEED = 20261031
 
 def maximize_solution(G: nx.Graph, S: set):
     """
@@ -128,10 +138,53 @@ def pure_caro_wei_baseline(G: nx.Graph):
 
     return independent_set
 
-def find_independent_set(graph: nx.Graph):
+def find_independent_set(graph: nx.Graph,
+                         restart_budget: float = RESTART_BUDGET,
+                         local_restart_budget: float = LOCAL_RESTART_BUDGET,
+                         ils_budget: float = ILS_BUDGET,
+                         ils_seed: int = ILS_SEED):
     """
-    Compute an approximate maximum independent set with strict Caro-Wei 
-    and Delta bounds.
+    Compute an approximate maximum independent set in near-linear time.
+
+    The vertex cover C used by this function is computed by Salvador
+    (salvador >= 0.1.4), which guarantees a 2-approximation for Minimum
+    Vertex Cover, |C| <= 2 * tau(G). The incumbent starts at V - C (or a
+    larger Caro-Wei set) and is only ever replaced by a larger independent
+    set, so the returned set S satisfies |S| >= n - |C|, and the
+    complementary vertex cover V - S satisfies |V - S| <= |C| <= 2 * tau(G).
+
+    Phases (G is the working graph without self-loops and isolated vertices):
+
+    1. Caro-Wei baseline: dynamic minimum-degree greedy, O(n + m).
+    2. Salvador cover C and its complement V - C, O((n + m) alpha(n)).
+    3. Restarts: for every u in C and for a maximum-degree vertex, move u
+       into V - C, evict its neighbours and grow to a maximal independent
+       set (the multi-restart loop of version 0.1.5), evaluated locally by
+       Salvador's refine_cover with work budget restart_budget * (n + m).
+    4. Local restarts (esperanza.localsearch): chained (k, k+1)-improvements
+       on the incumbent, budget local_restart_budget * (n + m).
+    5. Iterated local search with (1,2)-swaps (Andrade, Resende and Werneck),
+       Salvador's improve_vertex_cover, budget ils_budget * (n + m), fixed
+       seed ils_seed.
+    6. A final MaximizeSolution pass, O(n + m), so the output is a maximal
+       independent set.
+
+    Version 0.1.6 removes the complement-clique phase of version 0.1.5,
+    which built the complement graph and cost O(n^3 log n + n^4 / w).
+
+    Running time: O((n + m) alpha(n)) for fixed budgets, where alpha is the
+    inverse Ackermann function (from Salvador); every other phase is
+    O(n + m) or O(budget * (n + m)).
+
+    Args:
+        graph (nx.Graph): An undirected NetworkX graph.
+        restart_budget, local_restart_budget, ils_budget: Work budgets in
+            units of (n + m); None in restart_budget removes that cap.
+        ils_seed: Seed of the iterated local search.
+
+    Returns:
+        set: A maximal independent set of graph (self-loop vertices excluded
+        unless isolated after removing their loops).
     """
     if graph.number_of_nodes() == 0:
         return set()
@@ -145,61 +198,62 @@ def find_independent_set(graph: nx.Graph):
     if working_graph.number_of_nodes() == 0:
         return isolates
 
+    nodes = set(working_graph.nodes())
+
     # 1. Guarantee the Caro-Wei bound unconditionally
     caro_wei_iset = pure_caro_wei_baseline(working_graph)
 
-    # 2. Get the Hvala cover
-    cover = find_vertex_cover(working_graph)
-    nodes = set(working_graph.nodes())
-    hvala_iset = nodes - cover
+    # 2. Get the Salvador cover (2-approximation for vertex cover)
+    cover = salvador_vertex_cover(working_graph)
+    salvador_iset = nodes - cover
 
-    # 3. Get best solution
-    best_solution = caro_wei_iset if len(caro_wei_iset) > len(hvala_iset) else hvala_iset
+    best_solution = caro_wei_iset if len(caro_wei_iset) > len(salvador_iset) else salvador_iset
 
-    # 4. Explicitly inject the maximum degree vertex to guarantee branch evaluation
+    # 3. Budgeted restarts from every cover vertex and a maximum-degree vertex
     v_max = max(working_graph.nodes, key=working_graph.degree)
-    evaluation_pool = cover.union({v_max})
-    
-    # 5. Iterate over the guaranteed pool
-    for u in evaluation_pool:
-        candidate = (cover - {u}) | set(working_graph.neighbors(u))
-        iset = nodes - candidate
-        
-        solution = maximize_solution(working_graph, iset) # Keep Phase 1/2 repair here
-        
-        if len(solution) > len(best_solution):
-            best_solution = solution
+    restart_iset = nodes - refine_cover(working_graph, cover, v_max, restart_budget)
+    if len(restart_iset) > len(best_solution):
+        best_solution = restart_iset
 
-    # 6. Use disjoint set on complement graph 
-    complement_graph = nx.complement(working_graph)
-    disjoint_set = FastCliqueUF(complement_graph)
-    log = max(2, math.floor(math.log2(working_graph.number_of_nodes())))
-    for u in complement_graph:
-        neighbors = list(complement_graph.neighbors(u))
-        found = None
-        for v in neighbors:
-            if disjoint_set.add(v):
-                found = u
-        if found is not None:
-            # Extract all components of size >= 2 (potential cliques)
-            cliques = [s for s in disjoint_set.to_sets() if len(s) >= 2]
-            sorted_cliques = sorted(cliques, key=len)
-            
-            # Iterate from the maximal clique-like components; 
-            i = 1                       
-            while sorted_cliques and i <= log:
-                clique = sorted_cliques.pop()
-                iset = clique | {found}
-                solution = maximize_solution(working_graph, iset) # Keep Phase 1/2 repair here
-                i += 1
-                if len(solution) > len(best_solution):
-                    best_solution = solution
-        while neighbors:
-            w = neighbors.pop()
-            disjoint_set.remove(w)
+    # 4. Budgeted local restarts on the incumbent
+    adj_map = {u: list(working_graph.adj[u]) for u in working_graph}
+    solution = local_restart_search(adj_map, best_solution, local_restart_budget)
+    if len(solution) > len(best_solution):
+        best_solution = solution
+
+    # 5. Budgeted iterated local search with (1,2)-swaps
+    solution = nodes - improve_vertex_cover(adj_map, nodes - best_solution, ils_budget, ils_seed)
+    if len(solution) > len(best_solution):
+        best_solution = solution
+
+    # 6. Make sure the output is maximal
+    best_solution = maximize_solution(working_graph, best_solution)
 
     best_solution.update(isolates)
     return best_solution
+
+def find_vertex_cover(graph: nx.Graph):
+    """
+    Vertex cover returned by Esperanza: the complement V - S of the
+    independent set S computed by find_independent_set.
+
+    On a graph without self-loops, |S| >= n - |C| for the Salvador cover C
+    computed inside find_independent_set, so this cover is never larger than
+    Salvador's cover, and Salvador guarantees a 2-approximation, hence
+    |V - S| <= 2 * tau(G). A vertex with a self-loop must belong to every
+    cover, so such vertices are added to the returned cover.
+
+    Args:
+        graph (nx.Graph): An undirected NetworkX graph.
+
+    Returns:
+        set: A vertex cover of graph.
+    """
+    if graph.number_of_nodes() == 0:
+        return set()
+    loops = {u for u, _ in nx.selfloop_edges(graph)}
+    independent = find_independent_set(graph) - loops
+    return (set(graph.nodes()) - independent) | loops
 
 def find_independent_set_brute_force(graph):
     """
