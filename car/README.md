@@ -15,7 +15,7 @@ python car/experiment.py --total 3000    # quick scaled-down pass
 python car/experiment.py --seed 7        # different RNG seed
 ```
 
-Requirements are the package's own: `salvador` (>= 0.1.4, which supplies the
+Requirements are the package's own: `salvador` (>= 0.1.5, which supplies the
 vertex cover and brings `networkx`, `numpy`, `scipy` >= 1.15 for
 `scipy.optimize.milp`). The scripts import the repository's own `esperanza/`,
 so the package itself does not need to be installed.
@@ -90,7 +90,7 @@ python car/ugc_candidate.py --timeout 0        # no per-instance time limit
 ```
 
 Each instance runs in a worker process with a time limit (`--timeout`, default
-900 s); instances over the limit are listed as skipped. Esperanza 0.1.6 runs in
+900 s); instances over the limit are listed as skipped. Esperanza 0.1.7 runs in
 near-linear time; the integer program (`--ip-time`, `--ip-max-n`) is usually
 the slowest step.
 

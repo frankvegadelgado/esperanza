@@ -24,6 +24,8 @@ limit). It reports
 
     ratio_upper = alpha_upper / |S|   (certified upper bound on OPT / ALG)
     ratio_lower = alpha_lower / |S|   (lower bound; exact when alpha is proved)
+    ratio       = alpha / |S|         (the approximation ratio itself; defined
+                                       only when alpha is proved, empty otherwise)
     aks_scale   = Delta / log2(Delta)^2
     normalized  = ratio_upper / aks_scale
 
@@ -56,7 +58,7 @@ Each instance is built and evaluated in a worker process with a time limit
 
 Outputs (in car/results/):
 
-    bounded_degree.csv          one row per instance
+    bounded_degree.csv          one row per instance (column ratio = alpha / |S| when alpha is proved)
     bounded_degree_summary.txt  per family and Delta
     bounded_degree.json         all rows and run parameters
 """
@@ -261,6 +263,7 @@ def run_instance(name: str, family: str, params: dict, ip_time: float, ip_max_n:
         "alpha_lower": alpha_lower, "alpha_upper": alpha_upper, "alpha": alpha, "ip_status": ip_status,
         "esperanza": e, "caro_wei": len(cw), "salvador_complement": len(sal),
         "caro_wei_sum": round(caro_wei_sum, 3),
+        "ratio": alpha / e if alpha is not None else None,
         "ratio_upper": alpha_upper / e, "ratio_lower": alpha_lower / e,
         "caro_wei_ratio_upper": alpha_upper / len(cw), "salvador_ratio_upper": alpha_upper / len(sal),
         "aks_scale": aks, "normalized": (alpha_upper / e) / aks if aks == aks and aks > 0 else float("nan"),
@@ -291,30 +294,34 @@ def run_with_timeout(job_args, timeout: float, state: dict):
 
 FIELDS = ["family", "name", "n_param", "beta", "N", "d", "s", "delta_param", "n", "m", "delta", "planted",
           "alpha_lower", "alpha_upper", "alpha", "ip_status", "esperanza", "caro_wei",
-          "salvador_complement", "caro_wei_sum", "ratio_upper", "ratio_lower",
+          "salvador_complement", "caro_wei_sum", "ratio", "ratio_upper", "ratio_lower",
           "caro_wei_ratio_upper", "salvador_ratio_upper", "aks_scale", "normalized",
           "esperanza_optimal", "seconds_esperanza", "seconds_ip"]
 
 
 def summarise(rows: list[dict]) -> str:
-    hdr = (f"{'family':8} {'D set':>5} {'Delta':>5} {'inst':>4} {'exact':>5} {'opt':>4} {'max up':>8} {'mean up':>8} "
+    hdr = (f"{'family':8} {'D set':>5} {'Delta':>5} {'inst':>4} {'exact':>5} {'opt':>4} {'max ratio':>9} {'mean ratio':>10} {'max up':>8} {'mean up':>8} "
            f"{'max low':>8} {'CW up':>8} {'Salv up':>8} {'D/log2D^2':>9} {'max norm':>9}")
     lines = [hdr, "-" * len(hdr)]
     keys = sorted({(r["family"], r["delta_param"]) for r in rows})
     for fam, dp in keys:
         rs = [r for r in rows if r["family"] == fam and r["delta_param"] == dp]
         delta = max(r["delta"] for r in rs)
+        exact = [r["ratio"] for r in rs if r["ratio"] is not None]
         norms = [r["normalized"] for r in rs if r["normalized"] == r["normalized"]]
         aks = delta / math.log2(delta) ** 2 if delta >= 2 else float("nan")
         lines.append(
             f"{fam:8} {dp:>5} {delta:>5} {len(rs):>4} {sum(r['alpha'] is not None for r in rs):>5} "
             f"{sum(r['esperanza_optimal'] for r in rs):>4} "
+            f"{(f'{max(exact):.4f}' if exact else '-'):>9} "
+            f"{(f'{sum(exact) / len(exact):.4f}' if exact else '-'):>10} "
             f"{max(r['ratio_upper'] for r in rs):>8.4f} {sum(r['ratio_upper'] for r in rs) / len(rs):>8.4f} "
             f"{max(r['ratio_lower'] for r in rs):>8.4f} {max(r['caro_wei_ratio_upper'] for r in rs):>8.4f} "
             f"{max(r['salvador_ratio_upper'] for r in rs):>8.4f} {aks:>9.4f} "
             f"{max(norms) if norms else float('nan'):>9.4f}")
     lines += [
         "",
+        "ratio = alpha / |S|, the approximation ratio, over the instances with alpha proved ('-' if none);",
         "up = alpha_upper / |S| (certified upper bound on OPT/ALG); low = alpha_lower / |S|;",
         "D set = Delta of the setting (d * s for kr); Delta = largest measured maximum degree;",
         "exact = instances with alpha proved; opt = Esperanza optimal among them;",
@@ -359,6 +366,7 @@ def main() -> None:
                 fh.flush()
                 print(f"  {name:34} n={row['n']:>6} Delta={row['delta']:>4} |S|={row['esperanza']:>6}"
                       f" alpha in [{row['alpha_lower']}, {row['alpha_upper']}]"
+                      f" ratio={'-' if row['ratio'] is None else format(row['ratio'], '.4f')}"
                       f" up={row['ratio_upper']:.4f} norm={row['normalized']:.4f}"
                       f" {row['seconds_esperanza']:7.1f}s", flush=True)
         finally:

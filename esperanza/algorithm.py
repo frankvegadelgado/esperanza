@@ -1,10 +1,10 @@
-# Version: v0.1.6
+# Version: v0.1.7
 # Modified on 31/10/2026
 # Author: Frank Vega
 
 import itertools
 import networkx as nx
-# Salvador (>= 0.1.4) supplies the vertex cover. Salvador guarantees a
+# Salvador (>= 0.1.5) supplies the vertex cover. Salvador guarantees a
 # 2-approximation for Minimum Vertex Cover: |C| <= 2 * tau(G).
 from salvador.algorithm import find_vertex_cover as salvador_vertex_cover
 from salvador.algorithm import refine_cover
@@ -147,7 +147,7 @@ def find_independent_set(graph: nx.Graph,
     Compute an approximate maximum independent set in near-linear time.
 
     The vertex cover C used by this function is computed by Salvador
-    (salvador >= 0.1.4), which guarantees a 2-approximation for Minimum
+    (salvador >= 0.1.5), which guarantees a 2-approximation for Minimum
     Vertex Cover, |C| <= 2 * tau(G). The incumbent starts at V - C (or a
     larger Caro-Wei set) and is only ever replaced by a larger independent
     set, so the returned set S satisfies |S| >= n - |C|, and the

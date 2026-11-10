@@ -1,0 +1,4 @@
+experiment      ok                     1015.3 s   D:\Work\NP\esperanza\car\experiment.py
+bounded_degree  ok                     6313.2 s   D:\Work\NP\esperanza\car\bounded_degree.py
+ugc_candidate   ok                     3927.9 s   D:\Work\NP\esperanza\car\ugc_candidate.py
+total                                 11256.3 s   mode: full

@@ -1,5 +1,7 @@
 # Esperanza: Approximate Independent Set Solver
 
+**Current version:** v0.1.7 (uses Salvador v0.1.5)
+
 ![Erbarme dich, mein Gott (Bach)](docs/greco.jpg)
 
 This work builds upon [The Esperanza Algorithm](https://dev.to/frank_vega_987689489099bf/the-esperanza-algorithm-4khe).
@@ -97,7 +99,7 @@ Independent Set Found `4, 5`: Nodes `4`, and `5` constitute an optimal solution.
 ## Installation
 
 ```bash
-pip install esperanza
+pip install esperanza==0.1.7
 ```
 
 ## Execution

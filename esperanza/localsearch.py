@@ -1,4 +1,4 @@
-# Version: v0.1.6
+# Version: v0.1.7
 # Created on 31/10/2026
 # Author: Frank Vega
 

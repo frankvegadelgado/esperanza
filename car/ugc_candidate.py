@@ -52,7 +52,7 @@ the integer program is scipy.optimize.milp (HiGHS) with a time limit. When
 the integer program proves optimality, L = U = tau.
 
 Run from the repository root (the package does not need to be installed;
-the repository's own esperanza/ is used; salvador >= 0.1.4 must be importable):
+the repository's own esperanza/ is used; salvador >= 0.1.5 must be importable):
 
     python car/ugc_candidate.py                   # N = 40, 80, 160, 320 (640 to 10,240 vertices)
     python car/ugc_candidate.py --quick           # N = 40, 80 (the sizes of Salvador's Part D)
@@ -61,7 +61,7 @@ the repository's own esperanza/ is used; salvador >= 0.1.4 must be importable):
 
 Each instance is built and evaluated in a worker process with a time limit
 (--timeout, default 900 s); an instance that exceeds it is listed as
-skipped. Esperanza 0.1.6 runs in near-linear time; the integer program
+skipped. Esperanza 0.1.7 runs in near-linear time; the integer program
 (--ip-time, --ip-max-n) is usually the slowest step.
 
 Outputs (in car/results/):
@@ -99,7 +99,7 @@ from esperanza.algorithm import find_independent_set  # noqa: E402
 try:
     from salvador.algorithm import find_vertex_cover as salvador_vertex_cover  # noqa: E402
 except ImportError as exc:  # pragma: no cover
-    raise SystemExit("salvador >= 0.1.4 is required: pip install \"salvador>=0.1.4\"") from exc
+    raise SystemExit("salvador >= 0.1.5 is required: pip install \"salvador>=0.1.5\"") from exc
 
 SEED = 20261009  # same seed as Part D of the Salvador experiments
 OUT_DIR = Path(__file__).resolve().parent / "results"
